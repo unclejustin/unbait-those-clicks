@@ -1,6 +1,14 @@
+import os
+from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from pytube import YouTube
 import openai
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the API key from the environment variable
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def get_youtube_transcript(video_id):
     try:
@@ -18,7 +26,6 @@ def get_youtube_title(video_url):
         return f"Error: {e}"
 
 def summarize_text(title, transcript, max_tokens=150):
-    openai.api_key = "your_openai_api_key"  # Replace with your OpenAI API key
     prompt = (
         f"Here is a clickbait YouTube video title and its transcript. "
         f"Answer the clickbait title by summarizing the transcript:\n\n"
