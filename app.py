@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from models.video import db, VideoSummary
 from services.youtube import extract_video_id, get_video_info, get_transcript
-from services.openai_service import get_summary, analyze_content_quality
+from services.openai_service import get_summary, analyze_content_quality, answer_question
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///videos.db'
@@ -46,6 +46,7 @@ def index():
                 title=video_info['title'],
                 summary=summary,
                 analysis=analysis,
+                transcript=transcript_text,  # Store the transcript
                 duration=video_info['duration']
             )
             db.session.add(new_summary)
@@ -76,6 +77,24 @@ def get_summary_by_id(video_id):
             'duration_minutes': round(summary.duration / 60)
         })
     return jsonify({'error': 'Summary not found'}), 404
+
+@app.route("/summary/<video_id>/ask", methods=["POST"])
+def ask_question(video_id):
+    try:
+        question = request.json.get('question')
+        if not question:
+            return jsonify({'error': 'No question provided'}), 400
+
+        summary = VideoSummary.query.filter_by(video_id=video_id).first()
+        if not summary:
+            return jsonify({'error': 'Summary not found'}), 404
+
+        # Get answer using the transcript
+        answer = answer_question(question, summary.transcript)
+        return jsonify({'answer': answer.replace('\n', '<br>')})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 @app.route("/summary/<video_id>", methods=["DELETE"])
 def delete_summary(video_id):

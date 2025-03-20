@@ -72,7 +72,7 @@
 
             <div id="summaryContent">
                 {% if title and summary %}
-                <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4" data-video-id="{{ video_id }}">
                     <h2 class="text-xl font-bold text-gray-800 mb-4">{{ title }}</h2>
                     {% if duration_minutes > 0 %}
                     <div class="mb-4 text-green-600 font-semibold">
@@ -97,6 +97,30 @@
                     </div>
                 </div>
                 {% endif %}
+
+                <!-- Question asking interface -->
+                <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Ask a Question 🤔</h3>
+                    <form id="questionForm" class="mb-4">
+                        <div class="flex gap-4">
+                            <input type="text" 
+                                   id="questionInput" 
+                                   class="flex-grow shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                   placeholder="Ask a question about the video content...">
+                            <button type="submit" 
+                                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                Ask
+                            </button>
+                        </div>
+                    </form>
+                    <div id="questionLoading" class="hidden">
+                        <div class="flex items-center justify-center">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                            <span class="ml-2 text-gray-600">Thinking...</span>
+                        </div>
+                    </div>
+                    <div id="questionAnswer" class="mt-4"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -159,6 +183,28 @@
                         <div class="prose">
                             ${data.analysis}
                         </div>
+                    </div>
+                    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Ask a Question 🤔</h3>
+                        <form id="questionForm" class="mb-4">
+                            <div class="flex gap-4">
+                                <input type="text" 
+                                       id="questionInput" 
+                                       class="flex-grow shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                       placeholder="Ask a question about the video content...">
+                                <button type="submit" 
+                                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                    Ask
+                                </button>
+                            </div>
+                        </form>
+                        <div id="questionLoading" class="hidden">
+                            <div class="flex items-center justify-center">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                                <span class="ml-2 text-gray-600">Thinking...</span>
+                            </div>
+                        </div>
+                        <div id="questionAnswer" class="mt-4"></div>
                     </div>
                 `;
                 
@@ -237,11 +283,148 @@
                             ${data.analysis}
                         </div>
                     </div>
+                    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Ask a Question 🤔</h3>
+                        <form id="questionForm" class="mb-4">
+                            <div class="flex gap-4">
+                                <input type="text" 
+                                       id="questionInput" 
+                                       class="flex-grow shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                       placeholder="Ask a question about the video content...">
+                                <button type="submit" 
+                                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                    Ask
+                                </button>
+                            </div>
+                        </form>
+                        <div id="questionLoading" class="hidden">
+                            <div class="flex items-center justify-center">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                                <span class="ml-2 text-gray-600">Thinking...</span>
+                            </div>
+                        </div>
+                        <div id="questionAnswer" class="mt-4"></div>
+                    </div>
                 `;
+
+                // Reattach the question form handler
+                document.getElementById('questionForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const questionInput = document.getElementById('questionInput');
+                    const question = questionInput.value.trim();
+                    if (!question) return;
+
+                    const loadingDiv = document.getElementById('questionLoading');
+                    const answerDiv = document.getElementById('questionAnswer');
+                    const submitButton = this.querySelector('button[type="submit"]');
+
+                    // Show loading state
+                    loadingDiv.classList.remove('hidden');
+                    answerDiv.innerHTML = '';
+                    submitButton.disabled = true;
+                    submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+                    try {
+                        const response = await fetch(`/summary/${videoId}/ask`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ question })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.error) {
+                            throw new Error(data.error);
+                        }
+
+                        // Show the answer
+                        answerDiv.innerHTML = `
+                            <div class="bg-gray-50 rounded p-4">
+                                <p class="text-gray-700 whitespace-pre-line">${data.answer}</p>
+                            </div>
+                        `;
+                    } catch (error) {
+                        console.error('Error:', error);
+                        answerDiv.innerHTML = `
+                            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                                <span class="block sm:inline">Error: ${error.message}</span>
+                            </div>
+                        `;
+                    } finally {
+                        // Reset form and loading state
+                        questionInput.value = '';
+                        loadingDiv.classList.add('hidden');
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                });
             } catch (error) {
                 console.error('Error loading summary:', error);
             }
         }
+
+        // Add question form handler
+        document.getElementById('questionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const questionInput = document.getElementById('questionInput');
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            const loadingDiv = document.getElementById('questionLoading');
+            const answerDiv = document.getElementById('questionAnswer');
+            const submitButton = this.querySelector('button[type="submit"]');
+
+            // Show loading state
+            loadingDiv.classList.remove('hidden');
+            answerDiv.innerHTML = '';
+            submitButton.disabled = true;
+            submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            try {
+                const videoId = document.querySelector('[data-video-id]')?.dataset.videoId;
+                if (!videoId) {
+                    throw new Error('No video selected');
+                }
+
+                const response = await fetch(`/summary/${videoId}/ask`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Show the answer
+                answerDiv.innerHTML = `
+                    <div class="bg-gray-50 rounded p-4">
+                        <p class="text-gray-700 whitespace-pre-line">${data.answer}</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                answerDiv.innerHTML = `
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                        <span class="block sm:inline">Error: ${error.message}</span>
+                    </div>
+                `;
+            } finally {
+                // Reset form and loading state
+                questionInput.value = '';
+                loadingDiv.classList.add('hidden');
+                submitButton.disabled = false;
+                submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
     </script>
 </body>
 </html>

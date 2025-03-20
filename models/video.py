@@ -9,6 +9,7 @@ class VideoSummary(db.Model):
     title = db.Column(db.String(200), nullable=False)
     summary = db.Column(db.Text, nullable=False)
     analysis = db.Column(db.Text, nullable=False)
+    transcript = db.Column(db.Text, nullable=False)  # Store the full transcript
     duration = db.Column(db.Integer, nullable=False)  # in seconds
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

@@ -76,4 +76,32 @@ def analyze_content_quality(title, transcript_text, summary):
         max_tokens=300,
         temperature=0.7
     )
+    return response.choices[0].message.content
+
+def answer_question(question, transcript_text):
+    """Answer a specific question about the video content using the transcript."""
+    prompt = (
+        f"Answer the following question about the video content. "
+        f"Use the transcript to provide a detailed, accurate answer. "
+        f"If the answer requires specific quotes or examples from the transcript, include them. "
+        f"Make sure to provide context and explain the reasoning behind the answer.\n\n"
+        f"Question: {question}\n\n"
+        f"Transcript: {transcript_text}\n\n"
+        f"Answer:"
+    )
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system", 
+                "content": "You are a helpful assistant that provides detailed, accurate answers based on video content. "
+                          "You use specific examples and quotes from the transcript when relevant. "
+                          "You explain your reasoning and provide context for your answers."
+            },
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=500,
+        temperature=0.7
+    )
     return response.choices[0].message.content 
