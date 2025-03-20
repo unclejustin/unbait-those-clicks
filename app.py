@@ -6,12 +6,28 @@ import yt_dlp
 from openai import OpenAI
 from urllib.parse import urlparse, parse_qs
 import time
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///videos.db'
+db = SQLAlchemy(app)
+
+class VideoSummary(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    video_id = db.Column(db.String(20), unique=True, nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    summary = db.Column(db.Text, nullable=False)
+    analysis = db.Column(db.Text, nullable=False)
+    duration = db.Column(db.Integer, nullable=False)  # in seconds
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Video {self.title}>'
 
 def extract_video_id(url):
     """Extract video ID from various forms of YouTube URLs."""
@@ -108,11 +124,22 @@ def index():
         try:
             # Extract video ID using the new function
             video_id = extract_video_id(video_url)
+            
+            # Check if we already have this video in the database
+            existing_summary = VideoSummary.query.filter_by(video_id=video_id).first()
+            if existing_summary:
+                return render_template(
+                    "index.html",
+                    title=existing_summary.title,
+                    summary=existing_summary.summary,
+                    analysis=existing_summary.analysis,
+                    duration_minutes=round(existing_summary.duration / 60)
+                )
 
-            # Fetch video info using yt-dlp
+            # If not in database, proceed with API calls
             video_info = get_video_info(video_url)
             title = video_info['title']
-            duration_minutes = round(video_info['duration'] / 60)  # Convert seconds to minutes
+            duration = video_info['duration']
 
             # Fetch transcript
             transcript = YouTubeTranscriptApi.get_transcript(video_id)
@@ -150,12 +177,23 @@ def index():
             summary = summary.replace('\n', '<br>')
             analysis = analysis.replace('\n', '<br>')
 
-            return render_template(
-                "index.html", 
-                title=title, 
+            # Store in database
+            new_summary = VideoSummary(
+                video_id=video_id,
+                title=title,
                 summary=summary,
                 analysis=analysis,
-                duration_minutes=duration_minutes
+                duration=duration
+            )
+            db.session.add(new_summary)
+            db.session.commit()
+
+            return render_template(
+                "index.html",
+                title=title,
+                summary=summary,
+                analysis=analysis,
+                duration_minutes=round(duration / 60)
             )
 
         except Exception as e:
@@ -164,5 +202,10 @@ def index():
 
     return render_template("index.html")
 
+def init_db():
+    with app.app_context():
+        db.create_all()
+
 if __name__ == "__main__":
+    init_db()  # Initialize the database
     app.run(debug=True)
