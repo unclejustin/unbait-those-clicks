@@ -1,0 +1,24 @@
+<div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4" data-video-id="{{ video_id }}">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">{{ title }}</h2>
+    {% if duration_minutes > 0 %}
+    <div class="mb-4 text-green-600 font-semibold">
+        You just saved {{ duration_minutes }} minutes! 🎉
+    </div>
+    {% endif %}
+    <p class="text-gray-600 whitespace-pre-line">{{ summary | safe }}</p>
+</div>
+
+{% if analysis %}
+<div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">Should You Watch? 🤔</h3>
+    <div class="prose">
+        {% set first_line = analysis.split('<br>')[0] %}
+        {% if 'Watch: YES' in first_line %}
+            <p class="text-green-600 font-bold text-lg mb-4">{{ first_line }} 👍</p>
+        {% elif 'Watch: NO' in first_line %}
+            <p class="text-red-600 font-bold text-lg mb-4">{{ first_line }} 👎</p>
+        {% endif %}
+        {{ analysis.replace(first_line + '<br>', '') | safe }}
+    </div>
+</div>
+{% endif %} 
