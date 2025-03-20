@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from models.video import db, VideoSummary
 from services.youtube import extract_video_id, get_video_info, get_transcript
 from services.openai_service import get_summary, analyze_content_quality
@@ -9,6 +9,9 @@ db.init_app(app)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    # Get all stored summaries
+    stored_summaries = VideoSummary.query.order_by(VideoSummary.created_at.desc()).all()
+    
     if request.method == "POST":
         video_url = request.form["video_url"]
         try:
@@ -16,13 +19,14 @@ def index():
             video_id = extract_video_id(video_url)
             existing_summary = VideoSummary.query.filter_by(video_id=video_id).first()
             if existing_summary:
-                return render_template(
-                    "index.html",
-                    title=existing_summary.title,
-                    summary=existing_summary.summary,
-                    analysis=existing_summary.analysis,
-                    duration_minutes=round(existing_summary.duration / 60)
-                )
+                return jsonify({
+                    'title': existing_summary.title,
+                    'summary': existing_summary.summary,
+                    'analysis': existing_summary.analysis,
+                    'duration_minutes': round(existing_summary.duration / 60),
+                    'video_id': existing_summary.video_id,
+                    'created_at': existing_summary.created_at.strftime('%Y-%m-%d %H:%M')
+                })
 
             # Get video info and transcript
             video_info = get_video_info(video_url)
@@ -47,19 +51,43 @@ def index():
             db.session.add(new_summary)
             db.session.commit()
 
-            return render_template(
-                "index.html",
-                title=video_info['title'],
-                summary=summary,
-                analysis=analysis,
-                duration_minutes=round(video_info['duration'] / 60)
-            )
+            return jsonify({
+                'title': video_info['title'],
+                'summary': summary,
+                'analysis': analysis,
+                'duration_minutes': round(video_info['duration'] / 60),
+                'video_id': video_id,
+                'created_at': new_summary.created_at.strftime('%Y-%m-%d %H:%M')
+            })
 
         except Exception as e:
-            error_message = f"Error processing video: {str(e)}"
-            return render_template("index.html", error=error_message)
+            return jsonify({'error': str(e)}), 400
 
-    return render_template("index.html")
+    return render_template("index.html", stored_summaries=stored_summaries)
+
+@app.route("/summary/<video_id>")
+def get_summary_by_id(video_id):
+    summary = VideoSummary.query.filter_by(video_id=video_id).first()
+    if summary:
+        return jsonify({
+            'title': summary.title,
+            'summary': summary.summary,
+            'analysis': summary.analysis,
+            'duration_minutes': round(summary.duration / 60)
+        })
+    return jsonify({'error': 'Summary not found'}), 404
+
+@app.route("/summary/<video_id>", methods=["DELETE"])
+def delete_summary(video_id):
+    try:
+        summary = VideoSummary.query.filter_by(video_id=video_id).first()
+        if summary:
+            db.session.delete(summary)
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'error': 'Summary not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 def init_db():
     with app.app_context():
